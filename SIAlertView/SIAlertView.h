@@ -63,6 +63,7 @@ typedef void(^SIAlertViewHandler)(SIAlertView *alertView);
 @property (nonatomic, strong) UIColor *messageColor NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
 @property (nonatomic, strong) UIFont *titleFont NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
 @property (nonatomic, strong) UIFont *messageFont NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
+@property (nonatomic, strong) UIFont *textFieldFont;
 @property (nonatomic, strong) UIFont *buttonFont NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
 @property (nonatomic, strong) UIColor *buttonColor NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
 @property (nonatomic, strong) UIColor *cancelButtonColor NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
@@ -75,8 +76,13 @@ typedef void(^SIAlertViewHandler)(SIAlertView *alertView);
 - (void)setDestructiveButtonImage:(UIImage *)destructiveButtonImage forState:(UIControlState)state NS_AVAILABLE_IOS(5_0) UI_APPEARANCE_SELECTOR;
 
 - (id)initWithTitle:(NSString *)title andMessage:(NSString *)message;
+- (id)initWithImage:(UIImage *)image andBackgroundColor:(UIColor *)color andMessage:(NSString *)message;
+- (id)initWithTitle:(NSString *)title andTextFieldWithPlaceHolder:(NSString *)placeHolder andMessage:(NSString *)message;
+- (id)initWithTitle:(NSString *)title andCustomView:(UIView *)view;
 - (void)addButtonWithTitle:(NSString *)title type:(SIAlertViewButtonType)type handler:(SIAlertViewHandler)handler;
-
+- (void)addButtonWithTitle:(NSString *)title type:(SIAlertViewButtonType)type autoDismiss:(BOOL)autoDismiss handler:(SIAlertViewHandler)handler;
+- (void)setImage:(UIImage *)image andBackgroundColor:(UIColor *)color;
+- (NSString *)getTextOfTextField;
 - (void)show;
 - (void)dismissAnimated:(BOOL)animated;
 

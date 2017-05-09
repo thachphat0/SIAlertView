@@ -26,6 +26,9 @@ NSString *const SIAlertViewDidDismissNotification = @"SIAlertViewDidDismissNotif
 #define CONTENT_PADDING_BOTTOM 10
 #define BUTTON_HEIGHT 44
 #define CONTAINER_WIDTH 300
+#define TEXTFIELD_WIDTH 280
+#define TEXTFIELD_HEIGHT 44
+#define IMAGE_VIEW_SIZE 60
 
 const UIWindowLevel UIWindowLevelSIAlert = 1996.0;  // don't overlap system's alert
 const UIWindowLevel UIWindowLevelSIAlertBackground = 1985.0; // below the alert window
@@ -50,6 +53,9 @@ static SIAlertView *__si_alert_current_view;
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *messageLabel;
 @property (nonatomic, strong) UIView *containerView;
+@property (nonatomic, strong) UIImageView    *imageView;
+@property (nonatomic, strong) UITextField    *textField;
+@property (nonatomic, strong) UIView         *customView;
 @property (nonatomic, strong) NSMutableArray *buttons;
 
 @property (nonatomic, assign, getter = isLayoutDirty) BOOL layoutDirty;
@@ -131,6 +137,7 @@ static SIAlertView *__si_alert_current_view;
 
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, assign) SIAlertViewButtonType type;
+@property (nonatomic) BOOL autoDismiss;
 @property (nonatomic, copy) SIAlertViewHandler action;
 
 @end
@@ -177,7 +184,7 @@ static SIAlertView *__si_alert_current_view;
 }
 #endif
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
     UIViewController *viewController = [self.alertView.oldKeyWindow currentViewController];
     if (viewController) {
@@ -266,6 +273,53 @@ static SIAlertView *__si_alert_current_view;
 	return self;
 }
 
+- (id)initWithImage:(UIImage *)image andBackgroundColor:(UIColor *)color andMessage:(NSString *)message
+{
+	self = [super init];
+	if (self) {
+        _imageView                    = [[UIImageView alloc] initWithImage:image];
+        _imageView.frame              = CGRectMake(0, 0, IMAGE_VIEW_SIZE, IMAGE_VIEW_SIZE);
+        _imageView.contentMode        = UIViewContentModeCenter;
+        _imageView.backgroundColor    = color;
+        _message                      = message;
+        _imageView.layer.cornerRadius = 2;
+        [_imageView clipsToBounds];
+        self.items                    = [[NSMutableArray alloc] init];
+	}
+	return self;
+}
+
+- (id)initWithTitle:(NSString *)title andTextFieldWithPlaceHolder:(NSString *)placeHolder andMessage:(NSString *)message
+{
+	self = [super init];
+	if (self) {
+        _title                            = title;
+        _textField                        = [[UITextField alloc] initWithFrame:CGRectMake(10, 0, TEXTFIELD_WIDTH, TEXTFIELD_HEIGHT)];
+        _textField.contentMode            = UIViewContentModeCenter;
+        _textField.textAlignment          = UITextAlignmentCenter;
+        _textField.backgroundColor        = [UIColor colorWithRed:0.9 green:0.9 blue:0.9 alpha:1];
+        _textField.placeholder            = placeHolder;
+        _textField.autocapitalizationType = NO;
+        [_textField setKeyboardType:UIKeyboardTypeEmailAddress];
+        _message                          = message;
+        _imageView.layer.cornerRadius     = 2;
+        [_imageView clipsToBounds];
+        self.items                        = [[NSMutableArray alloc] init];
+	}
+	return self;
+}
+
+- (id)initWithTitle:(NSString *)title andCustomView:(UIView *)view
+{
+	self = [super init];
+	if (self) {
+        _title      = title;
+        _customView = view;
+        self.items  = [[NSMutableArray alloc] init];
+	}
+	return self;
+}
+
 #pragma mark - Class methods
 
 + (NSMutableArray *)sharedQueue
@@ -348,6 +402,13 @@ static SIAlertView *__si_alert_current_view;
     [self invalidateLayout];
 }
 
+- (void)setImage:(UIImage *)image andBackgroundColor:(UIColor *)color
+{
+    _imageView.image = image;
+    _imageView.backgroundColor = color;
+    [self invalidateLayout];
+}
+
 #pragma mark - Public
 
 - (void)addButtonWithTitle:(NSString *)title type:(SIAlertViewButtonType)type handler:(SIAlertViewHandler)handler
@@ -356,6 +417,17 @@ static SIAlertView *__si_alert_current_view;
 	item.title = title;
 	item.type = type;
 	item.action = handler;
+    item.autoDismiss = YES;
+	[self.items addObject:item];
+}
+
+- (void)addButtonWithTitle:(NSString *)title type:(SIAlertViewButtonType)type autoDismiss:(BOOL)autoDismiss handler:(SIAlertViewHandler)handler
+{
+    SIAlertItem *item = [[SIAlertItem alloc] init];
+	item.title = title;
+	item.type = type;
+	item.action = handler;
+    item.autoDismiss = autoDismiss;
 	[self.items addObject:item];
 }
 
@@ -736,7 +808,11 @@ static SIAlertView *__si_alert_current_view;
         CGFloat height = [self heightForTitleLabel];
         self.titleLabel.frame = CGRectMake(CONTENT_PADDING_LEFT, y, self.containerView.bounds.size.width - CONTENT_PADDING_LEFT * 2, height);
         y += height;
-	}
+	} else if (self.imageView) {
+        self.imageView.frame = CGRectMake(self.containerView.frame.size.width/2 - self.imageView.frame.size.width/2, y, self.imageView.frame.size.width, self.imageView.frame.size.height);
+        y += self.imageView.frame.size.height;
+    }
+    
     if (self.messageLabel) {
         if (y > CONTENT_PADDING_TOP) {
             y += GAP;
@@ -746,6 +822,20 @@ static SIAlertView *__si_alert_current_view;
         self.messageLabel.frame = CGRectMake(CONTENT_PADDING_LEFT, y, self.containerView.bounds.size.width - CONTENT_PADDING_LEFT * 2, height);
         y += height;
     }
+    
+    if (self.textField) {
+        CGFloat height = TEXTFIELD_HEIGHT;
+        self.textField.frame = CGRectMake(CONTENT_PADDING_LEFT, y, self.containerView.bounds.size.width - CONTENT_PADDING_LEFT * 2, height);
+        y += height;
+    }
+    
+    if (self.customView) {
+        CGFloat height = _customView.frame.size.height;
+        self.customView.center = CGPointMake(_containerView.center.x, _customView.frame.origin.y) ;
+        self.customView.frame = CGRectMake((CONTAINER_WIDTH - self.customView.frame.size.width)/2, y, self.customView.frame.size.width, self.customView.frame.size.height);
+        y += height;
+    }
+    
     if (self.items.count > 0) {
         if (y > CONTENT_PADDING_TOP) {
             y += GAP;
@@ -778,13 +868,29 @@ static SIAlertView *__si_alert_current_view;
 	CGFloat height = CONTENT_PADDING_TOP;
 	if (self.title) {
 		height += [self heightForTitleLabel];
-	}
+	} else if (self.imageView) {
+        height += IMAGE_VIEW_SIZE;
+    }
     if (self.message) {
         if (height > CONTENT_PADDING_TOP) {
             height += GAP;
         }
         height += [self heightForMessageLabel];
     }
+    if (self.textField) {
+        if (height > CONTENT_PADDING_TOP) {
+            height += GAP;
+        }
+        height += TEXTFIELD_HEIGHT;
+    }
+    
+    if (self.customView) {
+        if (height > CONTENT_PADDING_TOP) {
+            height += GAP;
+        }
+        height += self.customView.frame.size.height;
+    }
+    
     if (self.items.count > 0) {
         if (height > CONTENT_PADDING_TOP) {
             height += GAP;
@@ -866,7 +972,6 @@ static SIAlertView *__si_alert_current_view;
             return MAX(minHeight, size.height);
         #endif
     }
-    
     return minHeight;
 }
 
@@ -876,7 +981,10 @@ static SIAlertView *__si_alert_current_view;
 {
     [self setupContainerView];
     [self updateTitleLabel];
+    [self updateImageView];
     [self updateMessageLabel];
+    [self updateTextField];
+    [self updateCustomView];
     [self setupButtons];
     [self invalidateLayout];
 }
@@ -932,6 +1040,14 @@ static SIAlertView *__si_alert_current_view;
     [self invalidateLayout];
 }
 
+- (void)updateImageView
+{
+	if (self.imageView) {
+		[self.containerView addSubview:_imageView];
+	}
+    [self invalidateLayout];
+}
+
 - (void)updateMessageLabel
 {
     if (self.message) {
@@ -951,6 +1067,22 @@ static SIAlertView *__si_alert_current_view;
     } else {
         [self.messageLabel removeFromSuperview];
         self.messageLabel = nil;
+    }
+    [self invalidateLayout];
+}
+
+- (void)updateTextField
+{
+    if (self.textField) {
+        [self.containerView addSubview:_textField];
+    }
+    [self invalidateLayout];
+}
+
+- (void)updateCustomView
+{
+    if (self.customView) {
+        [self.containerView addSubview:_customView];
     }
     [self invalidateLayout];
 }
@@ -1017,7 +1149,9 @@ static SIAlertView *__si_alert_current_view;
 	if (item.action) {
 		item.action(self);
 	}
-	[self dismissAnimated:YES];
+    if (item.autoDismiss) {
+        [self dismissAnimated:YES];
+    }
 }
 
 #pragma mark - CAAnimation delegate
@@ -1058,6 +1192,16 @@ static SIAlertView *__si_alert_current_view;
     }
     _messageFont = messageFont;
     self.messageLabel.font = messageFont;
+    [self invalidateLayout];
+}
+
+- (void)setTextFieldFont:(UIFont *)textFieldFont
+{
+    if (_textFieldFont == textFieldFont) {
+        return;
+    }
+    _textFieldFont      = textFieldFont;
+    self.textField.font = _textFieldFont;
     [self invalidateLayout];
 }
 
@@ -1167,7 +1311,6 @@ static SIAlertView *__si_alert_current_view;
     }
 }
 
-
 -(void)setColor:(UIColor *)color toButtonsOfType:(SIAlertViewButtonType)type {
     for (NSUInteger i = 0; i < self.items.count; i++) {
         SIAlertItem *item = self.items[i];
@@ -1177,6 +1320,19 @@ static SIAlertView *__si_alert_current_view;
             [button setTitleColor:[color colorWithAlphaComponent:0.8] forState:UIControlStateHighlighted];
         }
     }
+}
+
+- (NSString *)getTextOfTextField
+{
+    if (self.textField) {
+        return self.textField.text;
+    }
+    return nil;
+}
+
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
+{
+    [self endEditing:YES];
 }
 
 # pragma mark -
